@@ -84,8 +84,11 @@
     "vscode:prepublish": "npm run build:extension",
     "build": "tsc",
     "build:extension": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify --sourcemap",
+    "build:mcp": "esbuild src/mcp-server.ts --bundle --outfile=dist/mcp-server.js --format=cjs --platform=node --minify --sourcemap",
     "watch": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --watch",
     "start": "ts-node src/index.ts",
+    "mcp": "ts-node src/mcp-server.ts",
+    "mcp:start": "node dist/mcp-server.js",
     "cli": "ts-node src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -95,21 +98,26 @@
     "@google-cloud/vertexai": "^1.10.0",
     "@google/generative-ai": "^0.24.1",
     "@huggingface/inference": "^4.13.4",
+    "@modelcontextprotocol/sdk": "^1.24.3",
+    "@qdrant/js-client-rest": "^1.16.2",
     "chalk": "^4.1.2",
     "dotenv": "^17.2.3",
     "execa": "^5.1.1",
     "fs-extra": "^10.0.0",
     "openai": "^6.10.0"
   },
+  "bin": {
+    "ai-collab-mcp": "./dist/mcp-server.js"
+  },
   "devDependencies": {
     "@types/fs-extra": "^9.0.13",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
     "@types/ws": "^8.18.1",
+    "@vscode/vsce": "^2.22.0",
     "esbuild": "^0.20.0",
     "ts-node": "^10.4.0",
     "typescript": "^5.0.0",
-    "vitest": "^1.6.1",
-    "@vscode/vsce": "^2.22.0"
+    "vitest": "^1.6.1"
   }
 }

@@ -7,15 +7,19 @@ import { PlanResponse, PlanStep, SharedContext } from './types';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import { spawn, ChildProcess } from 'child_process';
 
 // Output channel for logging
 let outputChannel: vscode.OutputChannel;
 let statusBarItem: vscode.StatusBarItem;
 
+// MCP Server process
+let mcpServerProcess: ChildProcess | null = null;
+
 // ============================================================
 // Extension Activation
 // ============================================================
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
     // Load .env from workspace if available
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (workspaceFolder) {
@@ -54,10 +58,122 @@ export function activate(context: vscode.ExtensionContext) {
 
     log('AI Collaboration extension activated!');
     log('Commands: Plan Task, Execute Full Pipeline, Review Code with Swarm');
+
+    // Start MCP server
+    await startMCPServer(context.extensionPath);
 }
 
-export function deactivate() {
+export async function deactivate() {
+    log('AI Collaboration extension deactivating...');
+
+    // Stop MCP server
+    await stopMCPServer();
+
     log('AI Collaboration extension deactivated');
+}
+
+// ============================================================
+// MCP Server Lifecycle Management
+// ============================================================
+async function startMCPServer(extensionPath: string): Promise<void> {
+    try {
+        log('Starting MCP server...');
+
+        const serverScript = path.join(extensionPath, 'dist', 'mcp-server.js');
+
+        // Check if server script exists
+        if (!await fs.pathExists(serverScript)) {
+            log(`⚠️ MCP server script not found at: ${serverScript}`, true);
+            vscode.window.showWarningMessage('MCP server not built. Run npm run build first.');
+            return;
+        }
+
+        // Spawn MCP server as child process
+        mcpServerProcess = spawn('node', [serverScript], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: {
+                ...process.env,
+                ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+                HF_TOKEN: process.env.HF_TOKEN
+            }
+        });
+
+        // Handle stdout
+        mcpServerProcess.stdout?.on('data', (data: Buffer) => {
+            const message = data.toString().trim();
+            log(`[MCP Server] ${message}`);
+        });
+
+        // Handle stderr
+        mcpServerProcess.stderr?.on('data', (data: Buffer) => {
+            const message = data.toString().trim();
+            log(`[MCP Server Error] ${message}`, true);
+        });
+
+        // Handle process exit
+        mcpServerProcess.on('exit', (code: number | null, signal: string | null) => {
+            if (code !== null) {
+                log(`MCP server exited with code ${code}`);
+            } else if (signal !== null) {
+                log(`MCP server terminated with signal ${signal}`);
+            }
+            mcpServerProcess = null;
+        });
+
+        // Handle errors
+        mcpServerProcess.on('error', (error: Error) => {
+            log(`Failed to start MCP server: ${error.message}`, true);
+            vscode.window.showErrorMessage(`MCP Server failed to start: ${error.message}`);
+            mcpServerProcess = null;
+        });
+
+        log('✅ MCP server started successfully');
+        statusBarItem.text = '$(hubot) AI Collab (MCP Ready)';
+
+    } catch (error: any) {
+        log(`Error starting MCP server: ${error.message}`, true);
+        vscode.window.showErrorMessage(`Failed to start MCP server: ${error.message}`);
+    }
+}
+
+async function stopMCPServer(): Promise<void> {
+    if (!mcpServerProcess) {
+        return;
+    }
+
+    try {
+        log('Stopping MCP server...');
+
+        return new Promise<void>((resolve) => {
+            if (!mcpServerProcess) {
+                resolve();
+                return;
+            }
+
+            // Set timeout for force kill
+            const timeout = setTimeout(() => {
+                if (mcpServerProcess && !mcpServerProcess.killed) {
+                    log('Force killing MCP server (timeout)');
+                    mcpServerProcess.kill('SIGKILL');
+                }
+                resolve();
+            }, 5000);
+
+            // Listen for exit
+            mcpServerProcess.once('exit', () => {
+                clearTimeout(timeout);
+                log('✅ MCP server stopped');
+                mcpServerProcess = null;
+                resolve();
+            });
+
+            // Send SIGTERM
+            mcpServerProcess.kill('SIGTERM');
+        });
+
+    } catch (error: any) {
+        log(`Error stopping MCP server: ${error.message}`);
+    }
 }
 
 // ============================================================
