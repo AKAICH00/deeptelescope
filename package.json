@@ -1,9 +1,12 @@
 {
-  "name": "ai-collab-vscode",
-  "displayName": "AI Collaboration",
-  "description": "Multi-agent AI orchestration with Opus Planner, Codex Coder, and Self-Correcting Swarm Review",
-  "version": "0.1.0",
+  "name": "ai-collab-swarm",
+  "displayName": "AI Collaboration Swarm",
+  "description": "Multi-agent AI orchestration MCP server with Opus Planner, Codex Coder, and Self-Correcting Swarm Review",
+  "version": "1.0.0",
   "publisher": "antigravity",
+  "bin": {
+    "ai-collab-swarm": "./dist/mcp-server.js"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -108,6 +111,88 @@
   },
   "bin": {
     "ai-collab-mcp": "./dist/mcp-server.js"
+  },
+  "mcp": {
+    "name": "ai-collab",
+    "version": "1.0.0",
+    "description": "Multi-agent AI orchestration MCP server with swarm review, code search, and task planning",
+    "server": {
+      "command": "node",
+      "args": [
+        "dist/mcp-server.js"
+      ],
+      "env": {}
+    },
+    "tools": [
+      {
+        "name": "swarm_review",
+        "description": "Multi-agent code review with self-correcting swarm intelligence",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "description": "Code to review"
+            },
+            "context": {
+              "type": "string",
+              "description": "Additional context about the code"
+            },
+            "swarmSize": {
+              "type": "number",
+              "description": "Number of agents in swarm (default: 4)"
+            }
+          },
+          "required": [
+            "code"
+          ]
+        }
+      },
+      {
+        "name": "search_codebase",
+        "description": "Semantic search across codebase using vector embeddings",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search query"
+            },
+            "limit": {
+              "type": "number",
+              "description": "Maximum results to return (default: 5)"
+            },
+            "filter": {
+              "type": "object",
+              "description": "Optional metadata filters"
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      },
+      {
+        "name": "plan_task",
+        "description": "Create detailed implementation plan using Claude Opus",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "task": {
+              "type": "string",
+              "description": "Task description"
+            },
+            "context": {
+              "type": "string",
+              "description": "Additional context"
+            }
+          },
+          "required": [
+            "task"
+          ]
+        }
+      }
+    ]
   },
   "devDependencies": {
     "@types/fs-extra": "^9.0.13",
