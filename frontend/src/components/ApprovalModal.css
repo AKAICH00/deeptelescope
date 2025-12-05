@@ -1,0 +1,253 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.approval-modal {
+  background: #1e1e1e;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 1px solid #333;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #2d2d2d 0%, #1e1e1e 100%);
+  border-bottom: 1px solid #333;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: #fff;
+}
+
+.overall-confidence {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255, 152, 0, 0.1);
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+.overall-confidence .confidence-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ff9800;
+}
+
+.overall-confidence .confidence-label {
+  font-size: 0.75rem;
+  color: #888;
+  text-transform: uppercase;
+}
+
+.modal-reason {
+  padding: 12px 24px;
+  background: rgba(255, 152, 0, 0.1);
+  border-bottom: 1px solid #333;
+  color: #ff9800;
+  font-size: 0.9rem;
+}
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+.section {
+  margin-bottom: 24px;
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.section h3 {
+  font-size: 1rem;
+  color: #888;
+  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.section p {
+  margin: 0;
+  color: #ddd;
+  line-height: 1.5;
+}
+
+.rationale {
+  margin-top: 8px !important;
+  color: #999 !important;
+  font-style: italic;
+}
+
+/* Confidence Bars */
+.confidence-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.confidence-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.confidence-bar .confidence-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+.confidence-track {
+  height: 8px;
+  background: #333;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.confidence-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* Risks */
+.risks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.risk-item {
+  padding: 12px;
+  background: #2a2a2a;
+  border-radius: 8px;
+  border-left: 4px solid;
+}
+
+.risk-header {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.risk-severity {
+  font-weight: bold;
+  font-size: 0.8rem;
+}
+
+.risk-category {
+  color: #888;
+  font-size: 0.8rem;
+}
+
+.risk-description {
+  color: #ddd;
+  margin-bottom: 8px;
+}
+
+.risk-mitigation {
+  color: #888;
+  font-size: 0.85rem;
+}
+
+/* Steps Preview */
+.steps-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.step-preview {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #2a2a2a;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.step-num {
+  color: #666;
+  font-weight: bold;
+}
+
+.step-agent {
+  color: #4fc3f7;
+}
+
+.step-desc {
+  color: #ddd;
+  flex: 1;
+}
+
+.more-steps {
+  color: #666;
+  font-style: italic;
+  padding: 8px 12px;
+}
+
+/* Footer */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  background: #2d2d2d;
+  border-top: 1px solid #333;
+}
+
+.btn {
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.btn-reject {
+  background: transparent;
+  color: #f44336;
+  border: 1px solid #f44336;
+}
+
+.btn-reject:hover {
+  background: rgba(244, 67, 54, 0.1);
+}
+
+.btn-approve {
+  background: #4caf50;
+  color: white;
+}
+
+.btn-approve:hover {
+  background: #45a049;
+}

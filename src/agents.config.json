@@ -1,0 +1,50 @@
+{
+  "codex": {
+    "name": "codex",
+    "command": "claude",
+    "args": ["--dangerously-skip-permissions", "-p"],
+    "interactionMode": "oneshot",
+    "timeoutMs": 180000,
+    "capabilities": ["write", "edit", "read", "execute"]
+  },
+  "claude": {
+    "name": "claude",
+    "command": "claude",
+    "args": ["--dangerously-skip-permissions", "-p"],
+    "interactionMode": "oneshot",
+    "timeoutMs": 180000,
+    "capabilities": ["write", "edit", "read", "execute"]
+  },
+  "opus": {
+    "name": "opus",
+    "command": "claude",
+    "args": ["-p"],
+    "interactionMode": "oneshot",
+    "timeoutMs": 120000,
+    "capabilities": ["plan", "analyze"]
+  },
+  "gemini": {
+    "name": "gemini",
+    "command": "claude",
+    "args": ["-p"],
+    "interactionMode": "oneshot",
+    "timeoutMs": 120000,
+    "capabilities": ["context", "summarize"]
+  },
+  "reviewer": {
+    "name": "reviewer",
+    "command": "claude",
+    "args": ["-p"],
+    "interactionMode": "oneshot",
+    "timeoutMs": 120000,
+    "capabilities": ["review", "validate"]
+  },
+  "antigravity": {
+    "name": "antigravity",
+    "command": "claude",
+    "args": ["--dangerously-skip-permissions", "-p"],
+    "interactionMode": "oneshot",
+    "timeoutMs": 180000,
+    "capabilities": ["write", "edit", "read", "execute"]
+  }
+}

@@ -1,0 +1,21 @@
+# Ignore everything first
+**
+
+# Include only what's needed
+!package.json
+!dist/**
+!README.md
+
+# Don't include source files, tests, or dev dependencies
+src/
+test/
+*.test.ts
+*.spec.ts
+node_modules/
+frontend/
+.env
+.env.*
+tsconfig.json
+vitest.config.*
+*.ts
+!dist/*.js

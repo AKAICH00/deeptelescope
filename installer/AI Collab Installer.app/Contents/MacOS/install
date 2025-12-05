@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# This wrapper opens Terminal and runs the actual installer
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+INSTALLER="$SCRIPT_DIR/run-installer.sh"
+
+# Open in Terminal
+osascript -e "tell application \"Terminal\"
+    activate
+    do script \"'$INSTALLER'; exit\"
+end tell"
