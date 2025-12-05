@@ -19,6 +19,10 @@ INSTALL_DIR="$HOME/.ai-collab"
 QDRANT_VERSION="1.12.1"
 NODE_MIN_VERSION="18"
 
+# Save script location BEFORE any cd commands
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE_DIR="$(dirname "$SCRIPT_DIR")"
+
 echo -e "${CYAN}"
 echo "╔═══════════════════════════════════════════════════════════╗"
 echo "║           AI Collab Swarm - Mac Installer                 ║"
@@ -59,7 +63,7 @@ echo -e "  ${GREEN}✓${NC} npm v$(npm -v)"
 
 echo -e "${BLUE}[2/6]${NC} Setting up install directory..."
 
-mkdir -p "$INSTALL_DIR"/{bin,data,logs}
+mkdir -p "$INSTALL_DIR"/{bin,config,data,logs}
 cd "$INSTALL_DIR"
 
 echo -e "  ${GREEN}✓${NC} Created $INSTALL_DIR"
@@ -110,10 +114,6 @@ echo -e "  ${GREEN}✓${NC} Qdrant configured"
 # ============================================================
 
 echo -e "${BLUE}[4/6]${NC} Installing AI Collab MCP server..."
-
-# Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Copy the built server
 if [ -f "$SOURCE_DIR/dist/mcp-server.js" ]; then

@@ -92,10 +92,15 @@
     "start": "ts-node src/index.ts",
     "mcp": "ts-node src/mcp-server.ts",
     "mcp:start": "node dist/mcp-server.js",
+    "api:dev": "ts-node api/server.ts",
+    "api:build": "tsc api/server.ts --outDir dist/api --esModuleInterop --resolveJsonModule --skipLibCheck",
+    "api:start": "node dist/api/server.js",
     "cli": "ts-node src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "package": "vsce package"
+    "package": "vsce package",
+    "setup": "node installer/scripts/postinstall.js",
+    "postinstall": "npm run build:mcp 2>/dev/null || true"
   },
   "dependencies": {
     "@google-cloud/vertexai": "^1.10.0",
@@ -103,9 +108,14 @@
     "@huggingface/inference": "^4.13.4",
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@qdrant/js-client-rest": "^1.16.2",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "chalk": "^4.1.2",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "execa": "^5.1.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
     "fs-extra": "^10.0.0",
     "openai": "^6.10.0"
   },
