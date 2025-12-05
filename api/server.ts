@@ -16,8 +16,24 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.use(express.static(path.join(__dirname, '../landing'))); // Serve landing page
+app.use(express.json({ limit: '10mb' }));
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+
+// SPA Routing
+app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, '../landing/dashboard.html'));
+});
+
+app.get('/signup', (req, res) => {
+    res.sendFile(path.join(__dirname, '../landing/dashboard.html')); // Reuse dashboard for now
+});
 
 // Rate limiting
 const limiter = rateLimit({
@@ -53,6 +69,26 @@ app.post('/api/webhook/paddle', express.raw({ type: 'application/json' }), async
         console.error('[Webhook] Error:', error);
         res.status(400).json({ error: error.message });
     }
+});
+
+// Dashboard endpoint
+app.get('/api/dashboard', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const apiKey = authHeader.split(' ')[1];
+
+    // Mock data for now (replace with DB looking later)
+    // In production, verify key with Paddle/DB
+    res.json({
+        plan: 'Pro',
+        used: 127,
+        limit: 500,
+        remaining: 373,
+        apiKey: apiKey,
+        resetDate: '2025-01-01'
+    });
 });
 
 // Review endpoint
