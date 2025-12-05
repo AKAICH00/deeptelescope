@@ -96,6 +96,7 @@
     "api:build": "tsc api/server.ts --outDir dist/api --esModuleInterop --resolveJsonModule --skipLibCheck",
     "api:start": "node dist/api/server.js",
     "cli": "ts-node src/cli.ts",
+    "benchmark": "ts-node src/benchmark-swarm.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "package": "vsce package",
