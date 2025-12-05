@@ -24,6 +24,196 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 
 // ============================================================
+// CRT Visualizer (outputs to stderr so it doesn't interfere with MCP)
+// ============================================================
+
+const ESC = '\x1b';
+const RESET = `${ESC}[0m`;
+const BOLD = `${ESC}[1m`;
+const DIM = `${ESC}[2m`;
+const BLINK = `${ESC}[5m`;
+
+const CYAN = `${ESC}[36m`;
+const GREEN = `${ESC}[32m`;
+const YELLOW = `${ESC}[33m`;
+const RED = `${ESC}[31m`;
+const MAGENTA = `${ESC}[35m`;
+const GRAY = `${ESC}[90m`;
+
+const BRIGHT_CYAN = `${ESC}[96m`;
+const BRIGHT_GREEN = `${ESC}[92m`;
+const BRIGHT_YELLOW = `${ESC}[93m`;
+const BRIGHT_WHITE = `${ESC}[97m`;
+
+const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const CHECK = '✓';
+const CROSS = '✗';
+const BLOCK_FULL = '█';
+const BLOCK_LIGHT = '░';
+
+interface VisualState {
+    agents: Array<{
+        id: number;
+        name: string;
+        color: string;
+        phase: 'idle' | 'generate' | 'correct' | 'vote' | 'done';
+        thought: string;
+        vote?: 'APPROVE' | 'REJECT';
+        confidence?: number;
+    }>;
+    frameCount: number;
+    startTime: number;
+}
+
+class SwarmVisualizerLive {
+    private state: VisualState;
+    private interval: NodeJS.Timeout | null = null;
+    private lastLineCount = 0;
+
+    constructor(agentCount: number) {
+        const names = ['QWEN-32B', 'LLAMA-8B', 'QWEN-32B', 'LLAMA-8B'];
+        const colors = [BRIGHT_CYAN, BRIGHT_GREEN, BRIGHT_YELLOW, MAGENTA];
+
+        this.state = {
+            agents: Array.from({ length: agentCount }, (_, i) => ({
+                id: i,
+                name: names[i % names.length],
+                color: colors[i % colors.length],
+                phase: 'idle',
+                thought: '',
+            })),
+            frameCount: 0,
+            startTime: Date.now(),
+        };
+    }
+
+    start() {
+        this.render();
+        this.interval = setInterval(() => {
+            this.state.frameCount++;
+            this.render();
+        }, 100);
+    }
+
+    stop() {
+        if (this.interval) {
+            clearInterval(this.interval);
+            this.interval = null;
+        }
+    }
+
+    setAgentPhase(id: number, phase: VisualState['agents'][0]['phase'], thought = '') {
+        if (this.state.agents[id]) {
+            this.state.agents[id].phase = phase;
+            this.state.agents[id].thought = thought;
+        }
+    }
+
+    setAgentVote(id: number, vote: 'APPROVE' | 'REJECT', confidence: number) {
+        if (this.state.agents[id]) {
+            this.state.agents[id].phase = 'done';
+            this.state.agents[id].vote = vote;
+            this.state.agents[id].confidence = confidence;
+        }
+    }
+
+    private render() {
+        const elapsed = ((Date.now() - this.state.startTime) / 1000).toFixed(1);
+        const spinner = SPINNER[this.state.frameCount % SPINNER.length];
+
+        // Move cursor up to overwrite previous output
+        if (this.lastLineCount > 0) {
+            process.stderr.write(`${ESC}[${this.lastLineCount}A`);
+        }
+
+        const lines: string[] = [];
+
+        // Header
+        lines.push(`${BRIGHT_CYAN}╔════════════════════════════════════════════════════════╗${RESET}`);
+        lines.push(`${BRIGHT_CYAN}║${RESET}  ${BRIGHT_WHITE}${BOLD}🐝 SWARM REVIEW${RESET}  ${GRAY}│${RESET}  ${this.state.agents.length} agents  ${GRAY}│${RESET}  ${elapsed}s  ${BRIGHT_CYAN}║${RESET}`);
+        lines.push(`${BRIGHT_CYAN}╠════════════════════════════════════════════════════════╣${RESET}`);
+
+        // Agents
+        for (const agent of this.state.agents) {
+            let statusIcon = '';
+            let statusText = '';
+            let thoughtText = agent.thought.substring(0, 35);
+
+            switch (agent.phase) {
+                case 'idle':
+                    statusIcon = `${GRAY}○${RESET}`;
+                    statusText = `${GRAY}waiting...${RESET}`;
+                    break;
+                case 'generate':
+                    statusIcon = `${agent.color}${spinner}${RESET}`;
+                    statusText = `${agent.color}GENERATE${RESET} ${GRAY}T=0.8${RESET}`;
+                    break;
+                case 'correct':
+                    statusIcon = `${YELLOW}${spinner}${RESET}`;
+                    statusText = `${YELLOW}CORRECT${RESET} ${GRAY}T=0.1${RESET}`;
+                    break;
+                case 'vote':
+                    statusIcon = `${BRIGHT_WHITE}${BLINK}▶${RESET}`;
+                    statusText = `${BRIGHT_WHITE}VOTING...${RESET}`;
+                    break;
+                case 'done':
+                    if (agent.vote === 'APPROVE') {
+                        statusIcon = `${BRIGHT_GREEN}${CHECK}${RESET}`;
+                        statusText = `${BRIGHT_GREEN}APPROVE${RESET} ${GRAY}${agent.confidence}%${RESET}`;
+                    } else {
+                        statusIcon = `${RED}${CROSS}${RESET}`;
+                        statusText = `${RED}REJECT${RESET} ${GRAY}${agent.confidence}%${RESET}`;
+                    }
+                    break;
+            }
+
+            lines.push(`${BRIGHT_CYAN}║${RESET} ${statusIcon} ${agent.color}Agent #${agent.id}${RESET} ${GRAY}[${agent.name}]${RESET}`.padEnd(70) + `${BRIGHT_CYAN}║${RESET}`);
+            lines.push(`${BRIGHT_CYAN}║${RESET}   ${statusText}`.padEnd(70) + `${BRIGHT_CYAN}║${RESET}`);
+            if (thoughtText) {
+                lines.push(`${BRIGHT_CYAN}║${RESET}   ${GRAY}${thoughtText}${RESET}`.padEnd(70) + `${BRIGHT_CYAN}║${RESET}`);
+            }
+        }
+
+        // Consensus bar
+        lines.push(`${BRIGHT_CYAN}╠════════════════════════════════════════════════════════╣${RESET}`);
+        const doneAgents = this.state.agents.filter(a => a.phase === 'done');
+        const approvals = doneAgents.filter(a => a.vote === 'APPROVE').length;
+
+        if (doneAgents.length === 0) {
+            lines.push(`${BRIGHT_CYAN}║${RESET}  ${GRAY}Awaiting votes...${RESET}`.padEnd(70) + `${BRIGHT_CYAN}║${RESET}`);
+        } else {
+            const percent = Math.round((approvals / this.state.agents.length) * 100);
+            const barWidth = 30;
+            const filledWidth = Math.round((approvals / this.state.agents.length) * barWidth);
+            const partialWidth = Math.round((doneAgents.length / this.state.agents.length) * barWidth) - filledWidth;
+
+            let bar = '';
+            for (let i = 0; i < barWidth; i++) {
+                if (i < filledWidth) {
+                    bar += `${BRIGHT_GREEN}${BLOCK_FULL}${RESET}`;
+                } else if (i < filledWidth + partialWidth) {
+                    bar += `${RED}${BLOCK_FULL}${RESET}`;
+                } else {
+                    bar += `${GRAY}${BLOCK_LIGHT}${RESET}`;
+                }
+            }
+
+            const percentColor = percent >= 60 ? BRIGHT_GREEN : percent >= 40 ? YELLOW : RED;
+            lines.push(`${BRIGHT_CYAN}║${RESET}  Consensus: ${bar} ${percentColor}${percent}%${RESET}`.padEnd(80) + `${BRIGHT_CYAN}║${RESET}`);
+        }
+
+        lines.push(`${BRIGHT_CYAN}╚════════════════════════════════════════════════════════╝${RESET}`);
+
+        // Clear to end of each line and write
+        for (const line of lines) {
+            process.stderr.write(`${ESC}[2K${line}\n`);
+        }
+
+        this.lastLineCount = lines.length;
+    }
+}
+
+// ============================================================
 // Configuration
 // ============================================================
 
@@ -253,29 +443,39 @@ class AICollabServer {
     }
 
     // ============================================================
-    // Tool: review_code (Self-Correcting Swarm)
+    // Tool: review_code (Self-Correcting Swarm with Live Visualization)
     // ============================================================
     private async handleReviewCode(args: { code: string; task: string; focus?: string }) {
         const { code, task, focus = 'all' } = args;
 
-        console.error(`[Swarm] Deploying ${this.swarmConfig.swarmSize} agents for review...`);
+        // Start live visualizer (outputs to stderr)
+        const visualizer = new SwarmVisualizerLive(this.swarmConfig.swarmSize);
+        visualizer.start();
 
         // Truncate code for context
         const truncatedCode = code.length > 3000
             ? code.substring(0, 3000) + '\n...[truncated]'
             : code;
 
-        // Run all agents in parallel
+        // Run all agents in parallel with visualization updates
         const agentPromises: Promise<AgentResult>[] = [];
         for (let i = 0; i < this.swarmConfig.swarmSize; i++) {
             const model = SWARM_MODELS[i % SWARM_MODELS.length];
-            agentPromises.push(this.runAgentWorkflow(i, model, task, truncatedCode, focus));
+            agentPromises.push(this.runAgentWorkflowWithViz(i, model, task, truncatedCode, focus, visualizer));
         }
 
         const results = await Promise.all(agentPromises);
 
+        // Stop visualizer
+        visualizer.stop();
+
         // Calculate consensus
         const consensus = this.calculateConsensus(results);
+
+        // Final status line
+        const verdictColor = consensus.approved ? BRIGHT_GREEN : RED;
+        const verdictIcon = consensus.approved ? CHECK : CROSS;
+        process.stderr.write(`\n${verdictColor}${verdictIcon} VERDICT: ${consensus.approved ? 'APPROVED' : 'REJECTED'} (${(consensus.score * 100).toFixed(1)}%)${RESET}\n\n`);
 
         return {
             content: [{
@@ -297,17 +497,21 @@ class AICollabServer {
         };
     }
 
-    private async runAgentWorkflow(
+    // Agent workflow with live visualization updates
+    private async runAgentWorkflowWithViz(
         agentId: number,
         model: string,
         task: string,
         code: string,
-        focus: string
+        focus: string,
+        visualizer: SwarmVisualizerLive
     ): Promise<AgentResult> {
         const shortModel = model.split('/').pop() || model;
 
         try {
             // PHASE 1: GENERATE (High Temperature)
+            visualizer.setAgentPhase(agentId, 'generate', 'Analyzing code patterns...');
+
             const generatePrompt = `You are Agent #${agentId} reviewing code.
 Focus: ${focus}
 Task: ${task}
@@ -333,6 +537,8 @@ NOTES: [observations]`;
             const initial = generateResp.choices[0]?.message?.content || '';
 
             // PHASE 2: CORRECT (Low Temperature)
+            visualizer.setAgentPhase(agentId, 'correct', 'Self-correcting assessment...');
+
             const correctPrompt = `Review and CORRECT your assessment:
 ${initial}
 
@@ -355,6 +561,8 @@ FINAL_QUALITY: [1-10]`;
             const corrected = correctResp.choices[0]?.message?.content || '';
 
             // PHASE 3: VOTE (Deterministic)
+            visualizer.setAgentPhase(agentId, 'vote', 'Casting final vote...');
+
             const votePrompt = `Cast your FINAL VOTE based on:
 ${corrected}
 
@@ -374,6 +582,9 @@ REASON: [one sentence]`;
             const voteContent = voteResp.choices[0]?.message?.content || 'APPROVE';
             const parsed = this.parseVote(voteContent);
 
+            // Update visualizer with final result
+            visualizer.setAgentVote(agentId, parsed.vote, parsed.confidence);
+
             // Extract issues from corrected assessment
             const issueMatch = corrected.match(/FINAL_ISSUES:\s*([^\n]+(?:\n(?!FINAL_QUALITY)[^\n]+)*)/i);
             const issues = issueMatch
@@ -390,7 +601,7 @@ REASON: [one sentence]`;
             };
 
         } catch (error: any) {
-            console.error(`[Agent #${agentId}] Error: ${error.message}`);
+            visualizer.setAgentVote(agentId, 'APPROVE', 30);
             return {
                 agentId,
                 model: shortModel,
