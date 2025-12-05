@@ -321,7 +321,7 @@ async function executeTaskCommand() {
             // Confirm execution unless auto-confirm
             if (!config.autoConfirm) {
                 const confirm = await vscode.window.showQuickPick(['Yes, execute plan', 'No, cancel'], {
-                    placeHolder: `Execute ${plan.steps.length} steps? (${(plan.confidence * 100).toFixed(0)}% confidence)`,
+                    placeHolder: `Execute ${plan.steps.length} steps? (${(plan.confidence.overall * 100).toFixed(0)}% confidence)`,
                     ignoreFocusOut: true
                 });
 
@@ -585,7 +585,7 @@ async function showPlanSummary(plan: PlanResponse, taskDescription: string) {
     items.unshift({
         label: `Confidence: ${(plan.confidence.overall * 100).toFixed(0)}%`,
         description: `${plan.steps.length} steps`,
-        detail: plan.analysis?.summary || taskDescription
+        detail: plan.analysis?.understanding || taskDescription
     });
 
     if (plan.risks && plan.risks.length > 0) {
