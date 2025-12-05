@@ -48,8 +48,8 @@ Perfect for: Large teams, enterprises
 
 ```
 Free: N/A (no payment required)
-Pro: pri_01xxxxxxxxxx
-Team: pri_01xxxxxxxxxx  
+Pro: pri_01kbrar2njgjashwz1n6sah22e
+Team: pri_01kbrar31ang5hxzwbkvhv9hms
 Enterprise: Contact sales
 ```
 
