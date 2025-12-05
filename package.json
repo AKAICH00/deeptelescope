@@ -1,11 +1,21 @@
 {
-  "name": "ai-collab-swarm",
-  "displayName": "AI Collaboration Swarm",
-  "description": "Multi-agent AI orchestration MCP server with Opus Planner, Codex Coder, and Self-Correcting Swarm Review",
+  "name": "deeptelescope",
+  "displayName": "DeepTelescope",
+  "description": "Multi-agent AI code review with self-correcting swarm intelligence. Multiple LLM lenses for deep code analysis.",
   "version": "1.0.0",
+  "author": "AKAICH00",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AKAICH00/deeptelescope.git"
+  },
+  "homepage": "https://github.com/AKAICH00/deeptelescope#readme",
+  "bugs": {
+    "url": "https://github.com/AKAICH00/deeptelescope/issues"
+  },
   "publisher": "antigravity",
   "bin": {
-    "ai-collab-swarm": "./dist/mcp-server.js"
+    "deeptelescope": "./dist/mcp-server.js"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -17,10 +27,12 @@
   ],
   "keywords": [
     "ai",
-    "claude",
-    "code generation",
+    "code-review",
     "multi-agent",
-    "swarm"
+    "swarm",
+    "llm",
+    "deeptelescope",
+    "mcp"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
@@ -108,6 +120,7 @@
     "@google/generative-ai": "^0.24.1",
     "@huggingface/inference": "^4.13.4",
     "@modelcontextprotocol/sdk": "^1.24.3",
+    "@paddle/paddle-node-sdk": "^3.4.0",
     "@qdrant/js-client-rest": "^1.16.2",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",

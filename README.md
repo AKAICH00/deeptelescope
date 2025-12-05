@@ -1,21 +1,22 @@
-# 🐝 Deep Telescope - AI Code Review Swarm
+# 🔭 DeepTelescope
 
-> Self-correcting multi-agent code review system powered by a 4-agent swarm
+> Multi-agent AI code review with self-correcting swarm intelligence
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-blue)](https://modelcontextprotocol.io/)
+[![npm version](https://img.shields.io/npm/v/deeptelescope)](https://www.npmjs.com/package/deeptelescope)
 
-**Deep Telescope** uses a self-correcting 4-agent swarm to review your code with unprecedented accuracy. Each agent goes through a 3-phase protocol (Generate → Correct → Vote) to provide weighted consensus on code quality.
+**DeepTelescope** uses multiple LLM "lenses" to analyze your code from different perspectives, then reaches consensus through weighted voting.
 
 ## ✨ Features
 
-- 🐝 **4-Agent Swarm** - Qwen 2.5 Coder 32B + Llama 3 8B working in parallel
-- 🔄 **Self-Correcting Protocol** - Generate (diverse) → Correct (precise) → Vote (consensus)
-- ⚡ **15-Second Reviews** - Get comprehensive feedback in seconds, not hours
-- 🔌 **MCP Server** - Works with Claude Desktop, Cursor, and any MCP client
-- 🌐 **REST API** - Easy integration into your workflow
-- 🔍 **Vector Search** - Semantic code search with Qdrant (coming soon)
+- 🔭 **Multi-Lens Analysis** - Multiple AI models reviewing code in parallel
+- 🔄 **Self-Correcting Protocol** - Generate (T=0.8) → Correct (T=0.1) → Vote (T=0.0)
+- 🏠 **Hybrid Inference** - Mix local (LM Studio) + cloud (HuggingFace, Groq)
+- ⚡ **Blazing Fast** - Groq models deliver <100ms inference
+- 🔌 **MCP Server** - Works with Claude Code, Claude Desktop, Cursor
+- 🎯 **Weighted Consensus** - Larger models get higher voting weight
 
 ## 🚀 Quick Start
 

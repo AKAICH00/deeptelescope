@@ -70,9 +70,10 @@ class SwarmVisualizerLive {
     private interval: NodeJS.Timeout | null = null;
     private lastLineCount = 0;
 
-    constructor(agentCount: number) {
-        const names = ['QWEN-32B', 'LLAMA-8B', 'QWEN-32B', 'LLAMA-8B'];
-        const colors = [BRIGHT_CYAN, BRIGHT_GREEN, BRIGHT_YELLOW, MAGENTA];
+    constructor(agentCount: number, modelNames?: string[]) {
+        const defaultNames = ['QWEN-32B', 'LLAMA-8B', 'QWEN-32B', 'LLAMA-8B'];
+        const names = modelNames || defaultNames;
+        const colors = [BRIGHT_CYAN, BRIGHT_GREEN, BRIGHT_YELLOW, MAGENTA, CYAN, GREEN, YELLOW, RED];
 
         this.state = {
             agents: Array.from({ length: agentCount }, (_, i) => ({
@@ -217,16 +218,141 @@ class SwarmVisualizerLive {
 // Configuration
 // ============================================================
 
-const SWARM_MODELS = [
-    "Qwen/Qwen2.5-Coder-32B-Instruct",
-    "meta-llama/Meta-Llama-3-8B-Instruct",
+type ModelProvider = 'huggingface' | 'lmstudio' | 'groq' | 'auto';
+
+interface ModelConfig {
+    id: string;
+    name: string;
+    provider: ModelProvider;
+    weight: number;  // Voting weight (higher = more trusted)
+    maxTokens: number;
+    contextSize: number;
+}
+
+// HuggingFace models (remote, rate-limited but powerful)
+// Using models available on HF Inference API Pro tier
+const HF_MODELS: ModelConfig[] = [
+    { id: "Qwen/Qwen2.5-Coder-32B-Instruct", name: "QWEN-32B", provider: 'huggingface', weight: 1.5, maxTokens: 300, contextSize: 4000 },
+    { id: "meta-llama/Meta-Llama-3-8B-Instruct", name: "LLAMA-8B", provider: 'huggingface', weight: 1.0, maxTokens: 300, contextSize: 3000 },
+    { id: "Qwen/Qwen2.5-72B-Instruct", name: "QWEN-72B", provider: 'huggingface', weight: 1.8, maxTokens: 300, contextSize: 4000 },
+    { id: "meta-llama/Llama-3.2-3B-Instruct", name: "LLAMA-3B", provider: 'huggingface', weight: 0.8, maxTokens: 250, contextSize: 3000 },
 ];
+
+// LM Studio local models (no rate limits, depends on user's hardware)
+// Detected models at ~/.lmstudio/models/
+const LMSTUDIO_MODELS: ModelConfig[] = [
+    { id: "gpt-oss-20b-MXFP4", name: "GPT-OSS-20B", provider: 'lmstudio', weight: 1.3, maxTokens: 500, contextSize: 4000 },
+    { id: "local-model", name: "LOCAL", provider: 'lmstudio', weight: 1.2, maxTokens: 500, contextSize: 4000 }, // Fallback
+];
+
+// Groq models (blazing fast inference - <100ms latency, free tier generous)
+// Free tier: 14,400 requests/day, ~100/min
+const GROQ_MODELS: ModelConfig[] = [
+    { id: "llama-3.1-70b-versatile", name: "GROQ-70B", provider: 'groq', weight: 1.8, maxTokens: 400, contextSize: 8000 },
+    { id: "llama-3.1-8b-instant", name: "GROQ-8B", provider: 'groq', weight: 1.0, maxTokens: 300, contextSize: 8000 },
+    { id: "mixtral-8x7b-32768", name: "GROQ-MIX", provider: 'groq', weight: 1.4, maxTokens: 400, contextSize: 8000 },
+];
+
+// LM Studio configuration
+const LMSTUDIO_CONFIG = {
+    baseURL: process.env.LMSTUDIO_URL || "http://localhost:1234/v1",
+    timeout: 120000, // Local models can be slower on first load
+};
+
+// ============================================================
+// Adaptive Rate Limiter (Token Bucket Algorithm)
+// ============================================================
+
+interface RateLimiterConfig {
+    maxTokens: number;      // Max tokens in bucket
+    refillRate: number;     // Tokens added per second
+    minDelay: number;       // Minimum delay between requests (ms)
+    maxDelay: number;       // Maximum backoff delay (ms)
+    backoffMultiplier: number;
+}
+
+const HF_RATE_LIMITS: RateLimiterConfig = {
+    maxTokens: 20,          // HF Pro allows ~20 concurrent
+    refillRate: 1.5,        // ~90 requests per minute
+    minDelay: 50,           // 50ms minimum between requests
+    maxDelay: 10000,        // 10s max backoff
+    backoffMultiplier: 1.5,
+};
+
+class AdaptiveRateLimiter {
+    private tokens: number;
+    private lastRefill: number;
+    private currentDelay: number;
+    private consecutiveFailures: number = 0;
+    private config: RateLimiterConfig;
+
+    constructor(config: RateLimiterConfig = HF_RATE_LIMITS) {
+        this.config = config;
+        this.tokens = config.maxTokens;
+        this.lastRefill = Date.now();
+        this.currentDelay = config.minDelay;
+    }
+
+    private refill() {
+        const now = Date.now();
+        const elapsed = (now - this.lastRefill) / 1000;
+        const tokensToAdd = elapsed * this.config.refillRate;
+        this.tokens = Math.min(this.config.maxTokens, this.tokens + tokensToAdd);
+        this.lastRefill = now;
+    }
+
+    async acquire(): Promise<void> {
+        this.refill();
+
+        if (this.tokens < 1) {
+            // Calculate wait time until a token is available
+            const waitTime = Math.max(
+                this.currentDelay,
+                ((1 - this.tokens) / this.config.refillRate) * 1000
+            );
+            await new Promise(r => setTimeout(r, waitTime));
+            this.refill();
+        }
+
+        this.tokens -= 1;
+        await new Promise(r => setTimeout(r, this.currentDelay));
+    }
+
+    onSuccess() {
+        this.consecutiveFailures = 0;
+        this.currentDelay = Math.max(
+            this.config.minDelay,
+            this.currentDelay * 0.9 // Gradually reduce delay on success
+        );
+    }
+
+    onRateLimitError() {
+        this.consecutiveFailures++;
+        this.currentDelay = Math.min(
+            this.config.maxDelay,
+            this.currentDelay * this.config.backoffMultiplier
+        );
+        // Reduce available tokens on rate limit
+        this.tokens = Math.max(0, this.tokens - 2);
+    }
+
+    getStatus(): { tokens: number; delay: number; failures: number } {
+        this.refill();
+        return {
+            tokens: Math.floor(this.tokens),
+            delay: Math.round(this.currentDelay),
+            failures: this.consecutiveFailures,
+        };
+    }
+}
 
 interface SwarmConfig {
     swarmSize: number;
     generateTemp: number;
     correctTemp: number;
     consensusThreshold: number;
+    preferLocal: boolean;  // Prefer local models when available
+    hybridMode: boolean;   // Mix local + remote models
 }
 
 const DEFAULT_SWARM_CONFIG: SwarmConfig = {
@@ -234,6 +360,8 @@ const DEFAULT_SWARM_CONFIG: SwarmConfig = {
     generateTemp: 0.8,
     correctTemp: 0.1,
     consensusThreshold: 0.6,
+    preferLocal: false,
+    hybridMode: true,
 };
 
 interface AgentResult {
@@ -252,9 +380,14 @@ interface AgentResult {
 class AICollabServer {
     private server: Server;
     private hfClient: OpenAI;
+    private localClient: OpenAI;
+    private groqClient: OpenAI;
     private qdrant: QdrantClient;
     private swarmConfig: SwarmConfig;
     private workspaceDir: string;
+    private localModelAvailable: boolean = false;
+    private availableModels: ModelConfig[] = [];
+    private rateLimiter: AdaptiveRateLimiter;
 
     constructor() {
         this.workspaceDir = process.env.WORKSPACE_DIR || process.cwd();
@@ -267,6 +400,23 @@ class AICollabServer {
             apiKey: hfToken || "dummy",
         });
 
+        // LM Studio local client (OpenAI-compatible)
+        this.localClient = new OpenAI({
+            baseURL: LMSTUDIO_CONFIG.baseURL,
+            apiKey: "lm-studio", // LM Studio doesn't require a real key
+            timeout: LMSTUDIO_CONFIG.timeout,
+        });
+
+        // Groq client (blazing fast inference - OpenAI-compatible)
+        const groqKey = process.env.GROQ_API_KEY;
+        this.groqClient = new OpenAI({
+            baseURL: "https://api.groq.com/openai/v1",
+            apiKey: groqKey || "dummy",
+        });
+
+        // Rate limiter for HuggingFace API
+        this.rateLimiter = new AdaptiveRateLimiter();
+
         // Qdrant client (in-memory mode)
         this.qdrant = new QdrantClient({
             url: process.env.QDRANT_URL || "http://localhost:6333",
@@ -274,7 +424,7 @@ class AICollabServer {
 
         this.server = new Server(
             {
-                name: 'ai-collab-swarm',
+                name: 'deeptelescope',
                 version: '1.0.0',
             },
             {
@@ -286,6 +436,91 @@ class AICollabServer {
         );
 
         this.setupHandlers();
+        this.detectAvailableModels();
+    }
+
+    // Check which providers are available
+    private async detectAvailableModels() {
+        // Include Groq models if API key is set (free tier, super fast)
+        const groqAvailable = !!process.env.GROQ_API_KEY;
+        this.availableModels = [
+            ...HF_MODELS,
+            ...(groqAvailable ? GROQ_MODELS : []),
+        ];
+
+        // Check LM Studio availability
+        try {
+            const response = await fetch(`${LMSTUDIO_CONFIG.baseURL}/models`, {
+                signal: AbortSignal.timeout(3000),
+            });
+            if (response.ok) {
+                const data = await response.json() as { data?: Array<{ id: string }> };
+                this.localModelAvailable = true;
+
+                // Update local models with actual available models
+                if (data.data && data.data.length > 0) {
+                    const localModels: ModelConfig[] = data.data.map((m: { id: string }) => ({
+                        id: m.id,
+                        name: m.id.split('/').pop()?.substring(0, 12).toUpperCase() || 'LOCAL',
+                        provider: 'lmstudio' as ModelProvider,
+                        weight: 1.3,
+                        maxTokens: 500,
+                        contextSize: 4000,
+                    }));
+                    this.availableModels = [...localModels, ...HF_MODELS, ...(groqAvailable ? GROQ_MODELS : [])];
+                } else {
+                    this.availableModels = [...LMSTUDIO_MODELS, ...HF_MODELS, ...(groqAvailable ? GROQ_MODELS : [])];
+                }
+                console.error(`✓ LM Studio detected at ${LMSTUDIO_CONFIG.baseURL}`);
+            }
+        } catch {
+            this.localModelAvailable = false;
+            console.error(`○ LM Studio not available (start it for unlimited local inference)`);
+        }
+
+        console.error(`Available models: ${this.availableModels.map(m => m.name).join(', ')}`);
+    }
+
+    // Get the appropriate client for a model
+    private getClientForModel(model: ModelConfig): OpenAI {
+        switch (model.provider) {
+            case 'lmstudio': return this.localClient;
+            case 'groq': return this.groqClient;
+            default: return this.hfClient;
+        }
+    }
+
+    // Select models for the swarm based on availability and config
+    private selectSwarmModels(count: number): ModelConfig[] {
+        const models: ModelConfig[] = [];
+
+        if (this.swarmConfig.preferLocal && this.localModelAvailable) {
+            // All local models
+            const localModels = this.availableModels.filter(m => m.provider === 'lmstudio');
+            for (let i = 0; i < count; i++) {
+                models.push(localModels[i % localModels.length]);
+            }
+        } else if (this.swarmConfig.hybridMode && this.localModelAvailable) {
+            // Mix: half local, half remote for diversity
+            const localModels = this.availableModels.filter(m => m.provider === 'lmstudio');
+            const remoteModels = this.availableModels.filter(m => m.provider === 'huggingface');
+
+            for (let i = 0; i < count; i++) {
+                if (i % 2 === 0 && localModels.length > 0) {
+                    models.push(localModels[Math.floor(i / 2) % localModels.length]);
+                } else {
+                    models.push(remoteModels[Math.floor(i / 2) % remoteModels.length]);
+                }
+            }
+        } else {
+            // Remote only (original behavior)
+            const remoteModels = this.availableModels.filter(m => m.provider === 'huggingface');
+            for (let i = 0; i < count; i++) {
+                models.push(remoteModels[i % remoteModels.length]);
+            }
+        }
+
+        return models;
     }
 
     private setupHandlers() {
@@ -294,7 +529,7 @@ class AICollabServer {
             tools: [
                 {
                     name: 'review_code',
-                    description: 'Review code with a self-correcting 4-agent swarm. Each agent goes through Generate → Correct → Vote phases to provide weighted consensus.',
+                    description: 'Review code with a self-correcting multi-agent swarm. Supports hybrid local (LM Studio) + cloud (HuggingFace) models for unlimited scaling.',
                     inputSchema: {
                         type: 'object',
                         properties: {
@@ -311,8 +546,21 @@ class AICollabServer {
                                 enum: ['correctness', 'security', 'performance', 'quality', 'all'],
                                 description: 'Review focus area (default: all)',
                             },
+                            preferLocal: {
+                                type: 'boolean',
+                                description: 'Use local LM Studio models only (no rate limits). Default: hybrid mode',
+                            },
                         },
                         required: ['code', 'task'],
+                    },
+                },
+                {
+                    name: 'list_models',
+                    description: 'List available models for swarm review. Shows both local (LM Studio) and remote (HuggingFace) models with their status.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {},
+                        required: [],
                     },
                 },
                 {
@@ -419,6 +667,8 @@ class AICollabServer {
                 switch (name) {
                     case 'review_code':
                         return await this.handleReviewCode(args as any);
+                    case 'list_models':
+                        return await this.handleListModels();
                     case 'search_code':
                         return await this.handleSearchCode(args as any);
                     case 'index_code':
@@ -443,25 +693,81 @@ class AICollabServer {
     }
 
     // ============================================================
+    // Tool: list_models (Show available providers and models)
+    // ============================================================
+    private async handleListModels() {
+        // Refresh model detection
+        await this.detectAvailableModels();
+
+        const localModels = this.availableModels.filter(m => m.provider === 'lmstudio');
+        const remoteModels = this.availableModels.filter(m => m.provider === 'huggingface');
+
+        return {
+            content: [{
+                type: 'text',
+                text: JSON.stringify({
+                    status: {
+                        lmStudio: this.localModelAvailable ? 'connected' : 'not available',
+                        lmStudioUrl: LMSTUDIO_CONFIG.baseURL,
+                        huggingFace: 'available (may rate limit)',
+                    },
+                    localModels: localModels.map(m => ({
+                        name: m.name,
+                        id: m.id,
+                        weight: m.weight,
+                        maxTokens: m.maxTokens,
+                        contextSize: m.contextSize,
+                    })),
+                    remoteModels: remoteModels.map(m => ({
+                        name: m.name,
+                        id: m.id,
+                        weight: m.weight,
+                        maxTokens: m.maxTokens,
+                        contextSize: m.contextSize,
+                    })),
+                    config: {
+                        swarmSize: this.swarmConfig.swarmSize,
+                        hybridMode: this.swarmConfig.hybridMode,
+                        preferLocal: this.swarmConfig.preferLocal,
+                        consensusThreshold: `${this.swarmConfig.consensusThreshold * 100}%`,
+                    },
+                    tip: this.localModelAvailable
+                        ? 'Local models detected! Use preferLocal: true for unlimited inference.'
+                        : 'Start LM Studio to enable local models (no rate limits).',
+                }, null, 2),
+            }],
+        };
+    }
+
+    // ============================================================
     // Tool: review_code (Self-Correcting Swarm with Live Visualization)
     // ============================================================
-    private async handleReviewCode(args: { code: string; task: string; focus?: string }) {
-        const { code, task, focus = 'all' } = args;
+    private async handleReviewCode(args: { code: string; task: string; focus?: string; preferLocal?: boolean }) {
+        const { code, task, focus = 'all', preferLocal } = args;
+
+        // Override preferLocal if specified
+        if (preferLocal !== undefined) {
+            this.swarmConfig.preferLocal = preferLocal;
+        }
+
+        // Select models for this swarm run
+        const swarmModels = this.selectSwarmModels(this.swarmConfig.swarmSize);
+        const modelNames = swarmModels.map(m => m.name);
 
         // Start live visualizer (outputs to stderr)
-        const visualizer = new SwarmVisualizerLive(this.swarmConfig.swarmSize);
+        const visualizer = new SwarmVisualizerLive(this.swarmConfig.swarmSize, modelNames);
         visualizer.start();
 
-        // Truncate code for context
-        const truncatedCode = code.length > 3000
-            ? code.substring(0, 3000) + '\n...[truncated]'
-            : code;
+        // Log provider mix
+        const localCount = swarmModels.filter(m => m.provider === 'lmstudio').length;
+        const hfCount = swarmModels.filter(m => m.provider === 'huggingface').length;
+        console.error(`Swarm: ${localCount} local + ${hfCount} HF agents`);
 
         // Run all agents in parallel with visualization updates
         const agentPromises: Promise<AgentResult>[] = [];
         for (let i = 0; i < this.swarmConfig.swarmSize; i++) {
-            const model = SWARM_MODELS[i % SWARM_MODELS.length];
-            agentPromises.push(this.runAgentWorkflowWithViz(i, model, task, truncatedCode, focus, visualizer));
+            const model = swarmModels[i];
+            agentPromises.push(this.runAgentWorkflowWithViz(i, model, task, code, focus, visualizer));
         }
 
         const results = await Promise.all(agentPromises);
@@ -497,20 +803,51 @@ class AICollabServer {
         };
     }
 
+    // Rate-limited API call wrapper for HuggingFace
+    private async rateLimitedCall<T>(
+        modelConfig: ModelConfig,
+        apiCall: () => Promise<T>
+    ): Promise<T> {
+        // Skip rate limiting for local models
+        if (modelConfig.provider === 'lmstudio') {
+            return apiCall();
+        }
+
+        // Apply rate limiting for HuggingFace
+        await this.rateLimiter.acquire();
+
+        try {
+            const result = await apiCall();
+            this.rateLimiter.onSuccess();
+            return result;
+        } catch (error: any) {
+            if (error.status === 429 || error.message?.includes('rate limit')) {
+                this.rateLimiter.onRateLimitError();
+            }
+            throw error;
+        }
+    }
+
     // Agent workflow with live visualization updates
     private async runAgentWorkflowWithViz(
         agentId: number,
-        model: string,
+        modelConfig: ModelConfig,
         task: string,
         code: string,
         focus: string,
         visualizer: SwarmVisualizerLive
     ): Promise<AgentResult> {
-        const shortModel = model.split('/').pop() || model;
+        const client = this.getClientForModel(modelConfig);
+        const providerTag = modelConfig.provider === 'lmstudio' ? '🏠' : modelConfig.provider === 'groq' ? '⚡' : '☁️';
+
+        // Truncate code based on model's context size
+        const truncatedCode = code.length > modelConfig.contextSize
+            ? code.substring(0, modelConfig.contextSize) + '\n...[truncated]'
+            : code;
 
         try {
             // PHASE 1: GENERATE (High Temperature)
-            visualizer.setAgentPhase(agentId, 'generate', 'Analyzing code patterns...');
+            visualizer.setAgentPhase(agentId, 'generate', `${providerTag} Analyzing code...`);
 
             const generatePrompt = `You are Agent #${agentId} reviewing code.
 Focus: ${focus}
@@ -518,7 +855,7 @@ Task: ${task}
 
 Code:
 \`\`\`
-${code}
+${truncatedCode}
 \`\`\`
 
 Analyze for: correctness, error handling, edge cases, code quality.
@@ -527,17 +864,19 @@ ISSUES: [list problems or "None"]
 QUALITY: [1-10]
 NOTES: [observations]`;
 
-            const generateResp = await this.hfClient.chat.completions.create({
-                model,
-                messages: [{ role: 'user', content: generatePrompt }],
-                max_tokens: 300,
-                temperature: this.swarmConfig.generateTemp,
-            });
+            const generateResp = await this.rateLimitedCall(modelConfig, () =>
+                client.chat.completions.create({
+                    model: modelConfig.id,
+                    messages: [{ role: 'user', content: generatePrompt }],
+                    max_tokens: modelConfig.maxTokens,
+                    temperature: this.swarmConfig.generateTemp,
+                })
+            );
 
             const initial = generateResp.choices[0]?.message?.content || '';
 
             // PHASE 2: CORRECT (Low Temperature)
-            visualizer.setAgentPhase(agentId, 'correct', 'Self-correcting assessment...');
+            visualizer.setAgentPhase(agentId, 'correct', `${providerTag} Self-correcting...`);
 
             const correctPrompt = `Review and CORRECT your assessment:
 ${initial}
@@ -551,17 +890,19 @@ CORRECTIONS: [changes or "None needed"]
 FINAL_ISSUES: [updated list]
 FINAL_QUALITY: [1-10]`;
 
-            const correctResp = await this.hfClient.chat.completions.create({
-                model,
-                messages: [{ role: 'user', content: correctPrompt }],
-                max_tokens: 300,
-                temperature: this.swarmConfig.correctTemp,
-            });
+            const correctResp = await this.rateLimitedCall(modelConfig, () =>
+                client.chat.completions.create({
+                    model: modelConfig.id,
+                    messages: [{ role: 'user', content: correctPrompt }],
+                    max_tokens: modelConfig.maxTokens,
+                    temperature: this.swarmConfig.correctTemp,
+                })
+            );
 
             const corrected = correctResp.choices[0]?.message?.content || '';
 
             // PHASE 3: VOTE (Deterministic)
-            visualizer.setAgentPhase(agentId, 'vote', 'Casting final vote...');
+            visualizer.setAgentPhase(agentId, 'vote', `${providerTag} Voting...`);
 
             const votePrompt = `Cast your FINAL VOTE based on:
 ${corrected}
@@ -572,18 +913,23 @@ VOTE: APPROVE or REJECT
 CONFIDENCE: [0-100]%
 REASON: [one sentence]`;
 
-            const voteResp = await this.hfClient.chat.completions.create({
-                model,
-                messages: [{ role: 'user', content: votePrompt }],
-                max_tokens: 100,
-                temperature: 0.0,
-            });
+            const voteResp = await this.rateLimitedCall(modelConfig, () =>
+                client.chat.completions.create({
+                    model: modelConfig.id,
+                    messages: [{ role: 'user', content: votePrompt }],
+                    max_tokens: 100,
+                    temperature: 0.0,
+                })
+            );
 
             const voteContent = voteResp.choices[0]?.message?.content || 'APPROVE';
             const parsed = this.parseVote(voteContent);
 
+            // Apply model weight to confidence
+            const weightedConfidence = Math.min(100, Math.round(parsed.confidence * modelConfig.weight));
+
             // Update visualizer with final result
-            visualizer.setAgentVote(agentId, parsed.vote, parsed.confidence);
+            visualizer.setAgentVote(agentId, parsed.vote, weightedConfidence);
 
             // Extract issues from corrected assessment
             const issueMatch = corrected.match(/FINAL_ISSUES:\s*([^\n]+(?:\n(?!FINAL_QUALITY)[^\n]+)*)/i);
@@ -593,22 +939,23 @@ REASON: [one sentence]`;
 
             return {
                 agentId,
-                model: shortModel,
+                model: `${modelConfig.name}${providerTag}`,
                 vote: parsed.vote,
-                confidence: parsed.confidence,
+                confidence: weightedConfidence,
                 issues,
                 reasoning: parsed.reasoning,
             };
 
         } catch (error: any) {
+            const errorMsg = error.message?.substring(0, 50) || 'Unknown error';
             visualizer.setAgentVote(agentId, 'APPROVE', 30);
             return {
                 agentId,
-                model: shortModel,
+                model: `${modelConfig.name}${providerTag}`,
                 vote: 'APPROVE',
                 confidence: 30,
                 issues: [],
-                reasoning: `API error: ${error.message?.substring(0, 50)}`,
+                reasoning: `${modelConfig.provider} error: ${errorMsg}`,
             };
         }
     }
@@ -815,7 +1162,7 @@ Respond with JSON only:
 
         try {
             const response = await this.hfClient.chat.completions.create({
-                model: SWARM_MODELS[0],
+                model: HF_MODELS[0].id,
                 messages: [{ role: 'user', content: prompt }],
                 max_tokens: 500,
                 temperature: 0.3,
@@ -919,9 +1266,9 @@ Respond with JSON only:
     async run() {
         const transport = new StdioServerTransport();
         await this.server.connect(transport);
-        console.error('AI Collab MCP Server running on stdio');
+        console.error('🔭 DeepTelescope MCP Server running on stdio');
         console.error(`Workspace: ${this.workspaceDir}`);
-        console.error(`Swarm size: ${this.swarmConfig.swarmSize} agents`);
+        console.error(`Swarm: ${this.swarmConfig.swarmSize} agents | Providers: 🏠 Local ☁️ HuggingFace ⚡ Groq`);
     }
 }
 

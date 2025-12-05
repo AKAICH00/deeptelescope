@@ -25,6 +25,18 @@ describe('Calculator Operations', () => {
       expect(add(5, 0)).toBe(5);
       expect(add(0, 0)).toBe(0);
     });
+
+    it('should throw error for Infinity', () => {
+      expect(() => add(Infinity, 5)).toThrow('Invalid input: Both arguments must be finite numbers');
+      expect(() => add(5, Infinity)).toThrow('Invalid input: Both arguments must be finite numbers');
+      expect(() => add(-Infinity, 5)).toThrow('Invalid input: Both arguments must be finite numbers');
+    });
+
+    it('should throw error for NaN', () => {
+      expect(() => add(NaN, 5)).toThrow('Invalid input: Both arguments must be finite numbers');
+      expect(() => add(5, NaN)).toThrow('Invalid input: Both arguments must be finite numbers');
+      expect(() => add(NaN, NaN)).toThrow('Invalid input: Both arguments must be finite numbers');
+    });
   });
 
   describe('subtract', () => {

@@ -8,6 +8,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { OpenAI } from 'openai';
 import * as dotenv from 'dotenv';
+import { paddleService } from './paddle-service.js';
 
 dotenv.config();
 
@@ -42,6 +43,18 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Paddle webhook endpoint
+app.post('/api/webhook/paddle', express.raw({ type: 'application/json' }), async (req, res) => {
+    try {
+        const event = JSON.parse(req.body.toString());
+        await paddleService.handleWebhook(event);
+        res.json({ received: true });
+    } catch (error: any) {
+        console.error('[Webhook] Error:', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
 // Review endpoint
 app.post('/api/review', async (req, res) => {
     try {
@@ -54,8 +67,24 @@ app.post('/api/review', async (req, res) => {
         }
 
         // Verify API key (Paddle subscription)
-        // TODO: Add Paddle webhook verification
-        if (!apiKey && process.env.NODE_ENV === 'production') {
+        let tier: 'free' | 'pro' | 'team' | 'enterprise' = 'free';
+        let reviewsRemaining = 10; // Free tier default
+
+        if (apiKey) {
+            const verification = await paddleService.verifyApiKey(apiKey);
+            if (!verification.valid) {
+                return res.status(401).json({ error: 'Invalid API key' });
+            }
+            tier = verification.tier || 'free';
+            reviewsRemaining = verification.reviewsRemaining || 0;
+
+            if (reviewsRemaining <= 0) {
+                return res.status(429).json({
+                    error: 'Review limit exceeded',
+                    message: `Upgrade your plan at https://deeptelescope.dev/pricing`,
+                });
+            }
+        } else if (process.env.NODE_ENV === 'production') {
             return res.status(401).json({
                 error: 'API key required',
             });

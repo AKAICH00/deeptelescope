@@ -1,0 +1,80 @@
+# Source files (only publish dist/mcp-server.js)
+src/
+api/
+installer/
+tests/
+frontend/
+docs/
+
+# Config files
+tsconfig.json
+.eslintrc*
+.prettierrc*
+vitest.config.*
+railway.toml
+
+# Development
+*.ts
+!*.d.ts
+
+# Source maps (too large)
+*.map
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.vscodeignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Test/coverage
+coverage/
+.nyc_output/
+*.test.*
+*.spec.*
+
+# Documentation (keep only README, LICENSE, CONTRIBUTING)
+CODEBASE_ANALYSIS.md
+ORCHESTRATION_ANALYSIS.md
+SCALING_RECOMMENDATIONS.md
+SECURITY_AUDIT_CLI.md
+UX_RECOMMENDATIONS.md
+MCP_README.md
+INSTALL.md
+
+# Build artifacts
+*.vsix
+*.dmg
+.dockerignore
+Dockerfile
+
+# Install scripts (for npm we don't need these)
+install.sh
+install.ps1
+
+# Extra dist files (only need mcp-server.js)
+dist/agents/
+dist/extension.js
+dist/cli.js
+dist/cli-manager.js
+dist/orchestrator.js
+dist/index.js
+dist/types.js
+dist/registry.js
+dist/*.config.json
+
+# Environment
+.env
+.env.local
+
+# Misc
+*.log
+npm-debug.log*
