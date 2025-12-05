@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Telescope - AI Code Review Swarm</title>
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 100px 20px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+
+        .hero p {
+            font-size: 1.5rem;
+            margin-bottom: 40px;
+            opacity: 0.9;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background: white;
+            color: #667eea;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+
+        /* Pricing */
+        .pricing {
+            padding: 80px 20px;
+            background: #f7f9fc;
+        }
+
+        .pricing h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 50px;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .pricing-card {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .pricing-card.featured {
+            border: 3px solid #667eea;
+            transform: scale(1.05);
+        }
+
+        .plan-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .plan-price {
+            font-size: 2.5rem;
+            color: #667eea;
+            margin: 20px 0;
+        }
+
+        .plan-price span {
+            font-size: 1rem;
+            color: #666;
+        }
+
+        .plan-features {
+            list-style: none;
+            margin: 30px 0;
+            text-align: left;
+        }
+
+        .plan-features li {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .plan-features li:before {
+            content: "✓ ";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        /* Dashboard Preview */
+        .dashboard-preview {
+            padding: 80px 20px;
+        }
+
+        .dashboard-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .usage-bar {
+            background: #e0e0e0;
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .usage-fill {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            height: 100%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <h1>🐝 Deep Telescope</h1>
+            <p>AI Code Review in 15 Seconds</p>
+            <p style="font-size: 1.2rem;">4-agent swarm • Self-correcting • 100% consensus</p>
+
+            <div class="cta-buttons">
+                <button class="btn btn-primary" onclick="startFree()">
+                    Try Free (No Card Required)
+                </button>
+                <button class="btn btn-secondary" onclick="viewDemo()">
+                    View Demo
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="pricing">
+        <div class="container">
+            <h2>Simple, Transparent Pricing</h2>
+
+            <div class="pricing-grid">
+                <!-- Free -->
+                <div class="pricing-card">
+                    <div class="plan-name">Free</div>
+                    <div class="plan-price">$0<span>/month</span></div>
+                    <ul class="plan-features">
+                        <li>10 reviews/month</li>
+                        <li>4-agent swarm</li>
+                        <li>Community support</li>
+                        <li>Self-hosted option</li>
+                    </ul>
+                    <button class="btn btn-primary" onclick="startFree()">Start Free</button>
+                </div>
+
+                <!-- Pro (Featured) -->
+                <div class="pricing-card featured">
+                    <div class="plan-name">Pro</div>
+                    <div class="plan-price">$49<span>/month</span></div>
+                    <ul class="plan-features">
+                        <li>500 reviews/month</li>
+                        <li>4-agent swarm</li>
+                        <li>Email support</li>
+                        <li>Priority queue</li>
+                        <li>API access</li>
+                    </ul>
+                    <button class="btn btn-primary" onclick="upgradeToPro()">Subscribe</button>
+                </div>
+
+                <!-- Team -->
+                <div class="pricing-card">
+                    <div class="plan-name">Team</div>
+                    <div class="plan-price">$199<span>/month</span></div>
+                    <ul class="plan-features">
+                        <li>2,500 reviews/month</li>
+                        <li>6-agent swarm</li>
+                        <li>Slack integration</li>
+                        <li>Team dashboard</li>
+                        <li>Priority support</li>
+                    </ul>
+                    <button class="btn btn-primary" onclick="upgradeToTeam()">Subscribe</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Dashboard Preview -->
+    <section class="dashboard-preview">
+        <div class="container">
+            <h2 style="text-align: center; margin-bottom: 40px;">Track Your Usage</h2>
+
+            <div class="dashboard-card">
+                <h3>Your Dashboard</h3>
+                <p>Plan: <strong>Pro</strong> ($49/month)</p>
+
+                <div style="margin: 30px 0;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span>Usage: 127 / 500 reviews</span>
+                        <span>25%</span>
+                    </div>
+                    <div class="usage-bar">
+                        <div class="usage-fill" style="width: 25%"></div>
+                    </div>
+                </div>
+
+                <div style="background: #f7f9fc; padding: 20px; border-radius: 8px;">
+                    <p><strong>API Key:</strong></p>
+                    <code
+                        style="background: white; padding: 10px; display: block; margin-top: 10px; border-radius: 4px;">
+            dt_pro_xyz789abc...
+          </code>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Initialize Paddle
+        Paddle.Environment.set('production'); // or 'sandbox' for testing
+        Paddle.Initialize({
+            token: 'YOUR_PADDLE_CLIENT_TOKEN', // Get from Paddle dashboard
+        });
+
+        // Free tier signup
+        function startFree() {
+            // Redirect to signup page
+            window.location.href = '/signup';
+        }
+
+        // Pro upgrade
+        function upgradeToPro() {
+            Paddle.Checkout.open({
+                items: [{
+                    priceId: 'pri_01xxxxxxxxxx', // Replace with your Pro price ID
+                    quantity: 1
+                }],
+                customData: {
+                    userId: 'user_123' // Replace with actual user ID
+                },
+                successCallback: function (data) {
+                    window.location.href = '/dashboard?upgraded=true';
+                }
+            });
+        }
+
+        // Team upgrade
+        function upgradeToTeam() {
+            Paddle.Checkout.open({
+                items: [{
+                    priceId: 'pri_01yyyyyyyyyy', // Replace with your Team price ID
+                    quantity: 1
+                }],
+                customData: {
+                    userId: 'user_123'
+                },
+                successCallback: function (data) {
+                    window.location.href = '/dashboard?upgraded=true';
+                }
+            });
+        }
+
+        function viewDemo() {
+            window.location.href = 'https://github.com/AKAICH00/deeptelescope#demo';
+        }
+    </script>
+</body>
+
+</html>

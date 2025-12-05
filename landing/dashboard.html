@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Deep Telescope</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f7f9fc;
+            padding: 20px;
+        }
+
+        .dashboard {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+        }
+
+        .plan-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .usage-stats {
+            margin: 20px 0;
+        }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f7f9fc;
+            border-radius: 8px;
+        }
+
+        .stat-label {
+            color: #666;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .progress-bar {
+            background: #e0e0e0;
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            transition: width 0.3s;
+        }
+
+        .api-key-box {
+            background: #f7f9fc;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .api-key {
+            font-family: 'Courier New', monospace;
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .recent-reviews {
+            list-style: none;
+        }
+
+        .review-item {
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .review-item:last-child {
+            border-bottom: none;
+        }
+
+        .review-status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .status-approved {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border-left: 4px solid #f59e0b;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <div class="header">
+            <h1>🐝 Deep Telescope Dashboard</h1>
+            <span class="plan-badge" id="planBadge">Pro Plan - $49/month</span>
+        </div>
+
+        <!-- Usage Alert (shown when > 80%) -->
+        <div class="alert alert-warning" id="usageAlert" style="display: none;">
+            ⚠️ You've used 80% of your monthly reviews. Consider upgrading to avoid interruptions.
+            <button class="btn btn-primary" style="margin-left: 20px;" onclick="upgrade()">Upgrade Now</button>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid">
+            <!-- Usage Card -->
+            <div class="card">
+                <h2>Usage This Month</h2>
+
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressBar" style="width: 25%">
+                        25%
+                    </div>
+                </div>
+
+                <div class="usage-stats">
+                    <div class="stat">
+                        <span class="stat-label">Used</span>
+                        <span class="stat-value" id="usedCount">127</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Remaining</span>
+                        <span class="stat-value" id="remainingCount">373</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Limit</span>
+                        <span class="stat-value" id="limitCount">500</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Resets</span>
+                        <span class="stat-value" id="resetDate">Jan 1, 2025</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Key Card -->
+            <div class="card">
+                <h2>API Key</h2>
+
+                <div class="api-key-box">
+                    <p style="margin-bottom: 10px; color: #666;">Your API Key:</p>
+                    <div class="api-key" id="apiKey">dt_pro_xyz789abc123def456...</div>
+
+                    <div style="margin-top: 15px; display: flex; gap: 10px;">
+                        <button class="btn btn-primary" onclick="copyApiKey()">📋 Copy</button>
+                        <button class="btn btn-secondary" onclick="rotateApiKey()">🔄 Rotate</button>
+                    </div>
+                </div>
+
+                <p style="margin-top: 20px; font-size: 0.9rem; color: #666;">
+                    Keep your API key secure. Never share it publicly.
+                </p>
+            </div>
+        </div>
+
+        <!-- Recent Reviews -->
+        <div class="card">
+            <h2>Recent Reviews</h2>
+
+            <ul class="recent-reviews" id="recentReviews">
+                <li class="review-item">
+                    <div>
+                        <strong>calculator.ts</strong>
+                        <div style="font-size: 0.9rem; color: #666;">2 minutes ago</div>
+                    </div>
+                    <span class="review-status status-approved">✓ APPROVED</span>
+                </li>
+                <li class="review-item">
+                    <div>
+                        <strong>api.ts</strong>
+                        <div style="font-size: 0.9rem; color: #666;">5 minutes ago</div>
+                    </div>
+                    <span class="review-status status-approved">✓ APPROVED</span>
+                </li>
+                <li class="review-item">
+                    <div>
+                        <strong>utils.ts</strong>
+                        <div style="font-size: 0.9rem; color: #666;">12 minutes ago</div>
+                    </div>
+                    <span class="review-status status-rejected">✗ REJECTED</span>
+                </li>
+            </ul>
+
+            <button class="btn btn-secondary" style="margin-top: 20px; width: 100%;">
+                View All Reviews
+            </button>
+        </div>
+
+        <!-- Billing Management -->
+        <div class="card">
+            <h2>Billing</h2>
+
+            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="manageBilling()">
+                    Manage Subscription
+                </button>
+                <button class="btn btn-secondary" onclick="viewInvoices()">
+                    View Invoices
+                </button>
+                <button class="btn btn-danger" onclick="cancelSubscription()">
+                    Cancel Plan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load user data
+        async function loadDashboard() {
+            try {
+                const response = await fetch('/api/dashboard', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('apiKey')}`
+                    }
+                });
+
+                const data = await response.json();
+                updateDashboard(data);
+            } catch (error) {
+                console.error('Failed to load dashboard:', error);
+            }
+        }
+
+        function updateDashboard(data) {
+            // Update usage
+            const percentage = (data.used / data.limit) * 100;
+            document.getElementById('progressBar').style.width = percentage + '%';
+            document.getElementById('progressBar').textContent = Math.round(percentage) + '%';
+
+            document.getElementById('usedCount').textContent = data.used;
+            document.getElementById('remainingCount').textContent = data.remaining;
+            document.getElementById('limitCount').textContent = data.limit;
+
+            // Show alert if > 80%
+            if (percentage > 80) {
+                document.getElementById('usageAlert').style.display = 'block';
+            }
+
+            // Update API key
+            document.getElementById('apiKey').textContent = data.apiKey;
+        }
+
+        function copyApiKey() {
+            const apiKey = document.getElementById('apiKey').textContent;
+            navigator.clipboard.writeText(apiKey);
+            alert('API key copied to clipboard!');
+        }
+
+        async function rotateApiKey() {
+            if (!confirm('Are you sure? Your old API key will stop working.')) return;
+
+            const response = await fetch('/api/rotate-key', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('apiKey')}`
+                }
+            });
+
+            const data = await response.json();
+            document.getElementById('apiKey').textContent = data.newApiKey;
+            localStorage.setItem('apiKey', data.newApiKey);
+            alert('API key rotated successfully!');
+        }
+
+        async function manageBilling() {
+            // Open Paddle billing portal
+            const response = await fetch('/api/billing-portal', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('apiKey')}`
+                }
+            });
+
+            const { url } = await response.json();
+            window.location.href = url;
+        }
+
+        function viewInvoices() {
+            manageBilling(); // Paddle portal includes invoices
+        }
+
+        function cancelSubscription() {
+            if (confirm('Are you sure you want to cancel? You\'ll lose access to Pro features.')) {
+                manageBilling(); // Let them cancel via Paddle portal
+            }
+        }
+
+        function upgrade() {
+            window.location.href = '/pricing';
+        }
+
+        // Load dashboard on page load
+        loadDashboard();
+    </script>
+</body>
+
+</html>
