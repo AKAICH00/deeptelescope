@@ -740,12 +740,23 @@ class AICollabServer {
     }
 
     // ============================================================
-    // Tool: review_code (Self-Correcting Swarm with Live Visualization)
+    // Tool: review_code (Self-Correcting Swarm)
+    // Supports Local (Live Viz) and Cloud (Remote API) modes
     // ============================================================
     private async handleReviewCode(args: { code: string; task: string; focus?: string; preferLocal?: boolean }) {
         const { code, task, focus = 'all', preferLocal } = args;
 
-        // Override preferLocal if specified
+        // CHECK FOR CLOUD MODE
+        // If API Key is present and preferLocal is false, use Remote API
+        const apiKey = process.env.DEEP_TELESCOPE_API_KEY;
+        const apiUrl = process.env.DEEP_TELESCOPE_API_URL || 'http://77.42.26.144:3000'; // Default to our server IP
+
+        if (apiKey && !preferLocal) {
+            return await this.handleRemoteReview(code, task, focus, apiKey, apiUrl);
+        }
+
+        // --- LOCAL SWARM EXECUTION ---
+
         if (preferLocal !== undefined) {
             this.swarmConfig.preferLocal = preferLocal;
         }
@@ -801,6 +812,49 @@ class AICollabServer {
                 }, null, 2),
             }],
         };
+    }
+
+    // Handle Remote API Review (Cloud Mode)
+    private async handleRemoteReview(code: string, task: string, focus: string, apiKey: string, apiUrl: string) {
+        console.error(`☁️  Connecting to Deep Telescope Cloud ($$$)...`);
+        console.error(`👉 Target: ${apiUrl}`);
+
+        try {
+            const response = await fetch(`${apiUrl}/api/review`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({ code, task, focus })
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Cloud API Error (${response.status}): ${errText}`);
+            }
+
+            const data = await response.json() as any; // Expecting { verdict, score, summary, agents }
+
+            console.error(`✅ Cloud Review Complete! Verdict: ${data.verdict}`);
+
+            return {
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify(data, null, 2)
+                }]
+            };
+
+        } catch (error: any) {
+            console.error(`❌ Cloud Execution Failed: ${error.message}`);
+            return {
+                content: [{
+                    type: 'text',
+                    text: `Error connecting to Deep Telescope Cloud: ${error.message}. Check your API Key or Network.`
+                }],
+                isError: true,
+            };
+        }
     }
 
     // Rate-limited API call wrapper for HuggingFace
